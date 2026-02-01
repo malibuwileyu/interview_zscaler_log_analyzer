@@ -30,17 +30,6 @@ def create_app() -> Flask:
     try:
         with app.app_context():
             db.create_all()
-
-    
-          
-            
-    
-
-          
-          Expand Down
-    
-    
-  
             db.session.execute(text("SELECT 1"))
     except Exception as e:
         print(f"DB init failed: {e}", flush=True)
