@@ -22,7 +22,7 @@ def create_app() -> Flask:
     # --- Config --- 
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
         'DATABASE_URL',
-        'postgres://localhost:5432/log_analyzer')
+        'postgresql://localhost:5432/log_analyzer')
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
@@ -35,9 +35,15 @@ def create_app() -> Flask:
 
     db.init_app(app)
 
-    with app.app_context():
-        db.create_all()
-        db.session.execute(text("SELECT 1"))
+    db.init_app(app)
+
+    try:
+        with app.app_context():
+            db.create_all()
+            db.session.execute(text("SELECT 1"))
+    except Exception as e:
+        print(f"DB init failed: {e}", flush=True)
+        raise e
 
     Migrate(app, db)
     JWTManager(app)
