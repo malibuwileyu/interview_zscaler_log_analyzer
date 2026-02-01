@@ -27,14 +27,13 @@ if (!BACKEND_URL) {
 const app = express()
 
 // Proxy API calls to backend (avoids CORS issues)
+// Important: don't mount the middleware at "/api" using app.use("/api", ...)
+// because Express strips the mount path, causing backend to receive "/auth/..." instead of "/api/auth/...".
 app.use(
-  '/api',
-  createProxyMiddleware({
+  createProxyMiddleware('/api', {
     target: BACKEND_URL,
     changeOrigin: true,
     xfwd: true,
-    // Keep backend paths as-is (/api/...)
-    pathRewrite: undefined,
     logLevel: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
   }),
 )
