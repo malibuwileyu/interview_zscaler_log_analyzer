@@ -15,25 +15,26 @@ function normalizeBackendUrl(raw) {
   return `https://${raw}`
 }
 
-const BACKEND_URL = normalizeBackendUrl(process.env.BACKEND_URL)
+const BACKEND_URL = normalizeBackendUrl(process.env.BACKEND_URL || process.env.VITE_BACKEND_URL)
 
 if (!BACKEND_URL) {
-  // Railway: set BACKEND_URL to your backend public domain (e.g. https://backend-....up.railway.app)
+  // Railway: set BACKEND_URL (preferred) to your backend domain (e.g. https://backend-....up.railway.app)
   // Local: set BACKEND_URL=http://localhost:5000 (or wherever backend runs)
-  console.error('Missing required env var: BACKEND_URL')
+  console.error('Missing required env var: BACKEND_URL (or VITE_BACKEND_URL)')
   process.exit(1)
 }
 
 const app = express()
 
 // Proxy API calls to backend (avoids CORS issues)
-// Important: don't mount the middleware at "/api" using app.use("/api", ...)
-// because Express strips the mount path, causing backend to receive "/auth/..." instead of "/api/auth/...".
+// Note: http-proxy-middleware v3 `createProxyMiddleware()` takes a single options object.
+// We use `pathFilter` instead of mounting at `/api` so Express doesn't strip the `/api` prefix.
 app.use(
-  createProxyMiddleware('/api', {
+  createProxyMiddleware({
     target: BACKEND_URL,
     changeOrigin: true,
     xfwd: true,
+    pathFilter: '/api',
     logLevel: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
   }),
 )
