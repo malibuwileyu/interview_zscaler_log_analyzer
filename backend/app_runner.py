@@ -35,8 +35,6 @@ def create_app() -> Flask:
 
     db.init_app(app)
 
-    db.init_app(app)
-
     try:
         with app.app_context():
             db.create_all()
