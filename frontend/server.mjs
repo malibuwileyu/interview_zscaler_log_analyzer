@@ -40,6 +40,19 @@ app.get(/.*/, (_req, res) => {
   res.sendFile(path.join(distPath, 'index.html'))
 })
 
+// health check to backend
+app.get('/health', (_req, res) => res.json({ status: 'ok' }))
+
+app.get('/health/backend', async (_req, res) => {
+  try {
+    const r = await fetch(`${BACKEND_URL}/health`)
+    const text = await r.text()
+    res.status(r.status).send(text)
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message ?? e) })
+  }
+})
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`frontend listening on 0.0.0.0:${PORT}`)
   console.log(`proxying /api -> ${BACKEND_URL}`)
