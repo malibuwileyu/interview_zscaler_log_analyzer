@@ -93,7 +93,8 @@ export async function createUpload(token: string, file: File) {
 
 export async function listLogs(token: string, uploadId: string, onlyAnomalies: boolean, limit: number) {
   const params = new URLSearchParams()
-  if (onlyAnomalies) params.set('only_anomalies', '1')
+  // Always send explicitly so the backend behavior is unambiguous.
+  params.set('only_anomalies', onlyAnomalies ? '1' : '0')
   params.set('limit', String(limit))
   return apiRequest<{ data: { logs: LogDto[] } }>(`/api/uploads/${uploadId}/logs?${params.toString()}`, {
     token,

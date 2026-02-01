@@ -46,6 +46,12 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
+  useEffect(() => {
+    if (!token || !selectedUploadId) return
+    refreshLogs(selectedUploadId).catch((e) => setError(String(e?.message ?? e)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, selectedUploadId, onlyAnomalies, limit])
+
   return (
     <>
       <div className="page">

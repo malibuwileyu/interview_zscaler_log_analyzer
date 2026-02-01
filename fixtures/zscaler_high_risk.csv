@@ -1,0 +1,27 @@
+datetime,clientip,url,action,sentbytes,app_risk_score
+2026-02-01 12:00:00,10.0.0.10,https://example.com/,Allowed,1200,1
+2026-02-01 12:00:01,10.0.0.10,https://example.com/login,Allowed,900,2
+2026-02-01 12:00:02,10.0.0.11,https://saas.example.com/app,Allowed,1400,3
+2026-02-01 12:00:03,10.0.0.12,https://updates.example.com/check,Allowed,800,1
+2026-02-01 12:00:04,10.0.0.13,https://news.example.com/story,Allowed,2200,2
+2026-02-01 12:00:05,10.0.0.20,https://risk.example.com/odd,Allowed,1800,4
+2026-02-01 12:00:06,10.0.0.21,https://risk.example.com/odd2,Allowed,1700,5
+2026-02-01 12:00:07,10.0.0.22,https://risk.example.com/odd3,Allowed,2100,4
+2026-02-01 12:00:08,10.0.0.23,https://risk.example.com/odd4,Allowed,1900,6
+2026-02-01 12:00:09,10.0.0.24,https://risk.example.com/odd5,Allowed,1600,4
+2026-02-01 12:00:10,10.0.0.25,https://risk.example.com/odd6,Allowed,1300,7
+2026-02-01 12:00:11,10.0.0.26,https://risk.example.com/odd7,Allowed,900,4
+2026-02-01 12:00:12,10.0.0.27,https://risk.example.com/odd8,Allowed,1100,5
+2026-02-01 12:00:13,10.0.0.28,https://risk.example.com/odd9,Allowed,1250,4
+2026-02-01 12:00:14,10.0.0.29,https://risk.example.com/odd10,Allowed,1500,4
+2026-02-01 12:00:15,10.0.0.30,https://example.com/profile,Allowed,900,2
+2026-02-01 12:00:16,10.0.0.31,https://example.com/settings,Allowed,850,1
+2026-02-01 12:00:17,10.0.0.32,https://example.com/logout,Allowed,700,1
+2026-02-01 12:00:18,10.0.0.33,https://cdn.example.com/static/app.js,Allowed,4500,2
+2026-02-01 12:00:19,10.0.0.34,https://docs.example.com/help,Allowed,1300,3
+2026-02-01 12:00:20,10.0.0.35,https://risk.example.com/spike1,Allowed,1900,4
+2026-02-01 12:00:21,10.0.0.36,https://risk.example.com/spike2,Allowed,1900,4
+2026-02-01 12:00:22,10.0.0.37,https://risk.example.com/spike3,Allowed,1900,4
+2026-02-01 12:00:23,10.0.0.38,https://risk.example.com/spike4,Allowed,1900,4
+2026-02-01 12:00:24,10.0.0.39,https://risk.example.com/spike5,Allowed,1900,4
+
