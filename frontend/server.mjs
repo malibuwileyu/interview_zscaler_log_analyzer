@@ -7,7 +7,15 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const PORT = Number(process.env.PORT || 3000)
-const BACKEND_URL = process.env.BACKEND_URL
+
+function normalizeBackendUrl(raw) {
+  if (!raw) return null
+  // Railway users often paste "backend-xyz.up.railway.app" without a scheme.
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
+  return `https://${raw}`
+}
+
+const BACKEND_URL = normalizeBackendUrl(process.env.BACKEND_URL)
 
 if (!BACKEND_URL) {
   // Railway: set BACKEND_URL to your backend public domain (e.g. https://backend-....up.railway.app)
