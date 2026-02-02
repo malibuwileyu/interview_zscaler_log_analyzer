@@ -72,13 +72,62 @@ class UploadService:
     def parse_log_row(row: dict) -> tuple[bool, str, float]:
         reasons: list[str] = []
 
+        domain = urlparse(row.get('url', '')).netloc
+        if not domain:
+            domain = "(unknown)"
+        else:
+            domain = domain.split(':')[0]
+
         risk = int(row.get('app_risk_score', 0) or 0)
         sent = int(row.get('sentbytes', 0) or 0)
+
+        def _context_hint_for_domain(value: str) -> str:
+            v = (value or "").lower()
+            if not v or v == "(unknown)":
+                return "unknown"
+
+            # A few practical heuristics that read well in demos/interviews.
+            it_admin_keywords = (
+                "okta",
+                "intune",
+                "jamf",
+                "mdm",
+                "siem",
+                "splunk",
+                "sentinel",
+                "crowdstrike",
+                "falcon",
+                "defender",
+                "endpoint",
+                "edr",
+                "patch",
+                "updates",
+                "update",
+                "releases",
+                "backup",
+                "telemetry",
+                "collector",
+                "github.company",
+                "confluence",
+                "jira",
+            )
+            consumer_file_share = ("dropbox", "drive", "box", "onedrive", "googleusercontent", "wetransfer")
+            paste_sites = ("paste", "pastebin", "hastebin", "ghostbin")
+
+            if any(k in v for k in it_admin_keywords):
+                return "it_admin_tooling"
+            if any(k in v for k in paste_sites):
+                return "paste_site"
+            if any(k in v for k in consumer_file_share):
+                return "consumer_file_share"
+            return "unknown"
+
+        context_hint = _context_hint_for_domain(domain)
 
         # scale risk starting from 4 and upt to 7
         if risk >= 4:
             risk_sev = min(1.0, (risk - 4) / 3) 
-            reasons.append(f"High risk app (risk={risk})")
+            reasons.append(f"HighRiskApp: risk={risk} (>=4) dest={domain} ctx={context_hint}")
         else:
             risk_sev = 0.0
 
@@ -86,7 +135,7 @@ class UploadService:
         if sent > 5_000_000:
             bytes_sev = min(1.0, (sent - 5_000_000) / 20_000_000)  
             sent_mb = sent / 1_000_000
-            reasons.append(f"Large data outbound ({sent_mb:.2f}MB > 5.00MB)")
+            reasons.append(f"LargeOutbound: sent={sent_mb:.2f}MB (>5.00MB) dest={domain} ctx={context_hint}")
         else:
             bytes_sev = 0.0
 
@@ -100,7 +149,8 @@ class UploadService:
         if confidence > 1.0:
             confidence = 1.0
 
-        return len(reasons) > 0, ", ".join(reasons), confidence
+        is_anomaly = (risk >= 4) or (sent > 5_000_000)
+        return is_anomaly, "; ".join(reasons), confidence
 
     @staticmethod
     def get_upload_summary(upload_id: str, bucket_minutes: int = 5) -> dict:
