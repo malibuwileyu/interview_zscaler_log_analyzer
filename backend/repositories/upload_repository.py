@@ -43,7 +43,7 @@ class UploadRepository:
     @staticmethod
     def get_logs_by_upload_id(upload_id: str, only_anomalies: bool = False, limit: int = 100) -> list[LogEntry]:
         '''Retrieves all log entries for a given upload ID.'''
-        query = LogEntry.query.filter_by(upload_id=upload_id)
+        query = LogEntry.query.filter_by(upload_id=upload_id).order_by(LogEntry.timestamp.asc())
 
         if only_anomalies:
             query = query.filter_by(is_anomaly=True)

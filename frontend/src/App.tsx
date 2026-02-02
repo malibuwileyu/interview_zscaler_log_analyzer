@@ -1,6 +1,7 @@
 import './App.css'
 import { useEffect, useMemo, useState } from 'react'
 import {
+  aiReviewUpload,
   createUpload,
   getUploadSummary,
   HttpError,
@@ -12,6 +13,7 @@ import {
   type UploadDto,
   type UploadSummaryDto,
   type UserDto,
+  type AiReviewResponseDto,
 } from './api'
 import { clearToken, loadToken, saveToken } from './storage'
 
@@ -33,6 +35,12 @@ function App() {
   const [bucketMinutes, setBucketMinutes] = useState(5)
   const [summary, setSummary] = useState<UploadSummaryDto | null>(null)
 
+  const [aiOnlyAnomalies, setAiOnlyAnomalies] = useState(false)
+  const [aiLimit, setAiLimit] = useState(25)
+  const [aiChunkSize, setAiChunkSize] = useState(25)
+  const [aiReview, setAiReview] = useState<AiReviewResponseDto | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,6 +54,8 @@ function App() {
     setSelectedUploadId(null)
     setLogs([])
     setSummary(null)
+    setAiReview(null)
+    setAiLoading(false)
     setStatus(null)
     setError(message)
   }
@@ -500,6 +510,119 @@ function App() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </section>
+
+            <section className="card span2">
+              <div className="cardTitle">AI Review (chunked)</div>
+              <div className="muted">
+                Sends a small batch of logs to the AI to classify anomalies with a short reason + confidence. Requires{' '}
+                <span className="mono">OPENAI_API_KEY</span> on the backend.
+              </div>
+
+              <div className="row">
+                <label className="row">
+                  <input type="checkbox" checked={aiOnlyAnomalies} onChange={(e) => setAiOnlyAnomalies(e.target.checked)} />
+                  <span>Only anomalies</span>
+                </label>
+                <label className="row">
+                  <span className="muted">Limit</span>
+                  <input
+                    className="small"
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={aiLimit}
+                    onChange={(e) => setAiLimit(Number(e.target.value))}
+                  />
+                </label>
+                <label className="row">
+                  <span className="muted">Chunk</span>
+                  <input
+                    className="small"
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={aiChunkSize}
+                    onChange={(e) => setAiChunkSize(Number(e.target.value))}
+                  />
+                </label>
+                <button
+                  className="primary"
+                  disabled={!selectedUploadId || !token || aiLoading}
+                  onClick={async () => {
+                    if (!selectedUploadId || !token) return
+                    setError(null)
+                    setStatus(null)
+                    setAiReview(null)
+                    setAiLoading(true)
+                    try {
+                      const res = await aiReviewUpload(token, {
+                        uploadId: selectedUploadId,
+                        limit: aiLimit,
+                        chunkSize: aiChunkSize,
+                        onlyAnomalies: aiOnlyAnomalies,
+                      })
+                      setAiReview(res.data)
+                      setStatus(`AI reviewed ${res.data.analyzed_count} logs (${res.data.model ?? 'model unknown'})`)
+                    } catch (err: unknown) {
+                      if (err instanceof HttpError && err.status === 401) return forceLogout('Session expired. Please log in again.')
+                      setError(String((err as Error)?.message ?? err))
+                    } finally {
+                      setAiLoading(false)
+                    }
+                  }}
+                >
+                  {aiLoading ? 'Reviewing…' : 'Run AI review'}
+                </button>
+              </div>
+
+              {!selectedUploadId ? (
+                <div className="muted" style={{ marginTop: 12 }}>
+                  Select an upload first.
+                </div>
+              ) : !aiReview ? (
+                <div className="muted" style={{ marginTop: 12 }}>
+                  No AI review results yet.
+                </div>
+              ) : (
+                <div style={{ marginTop: 12 }}>
+                  <div className="row">
+                    <span className="pill">Model: {aiReview.model ?? 'unknown'}</span>
+                    <span className="pill">Analyzed: {aiReview.analyzed_count}</span>
+                    <span className="pill">Chunk: {aiReview.chunk_size}</span>
+                    {typeof aiReview.elapsed_ms === 'number' ? <span className="pill">Time: {aiReview.elapsed_ms}ms</span> : null}
+                  </div>
+
+                  <div className="tableWrap">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Client IP</th>
+                          <th>URL</th>
+                          <th>AI anomaly</th>
+                          <th>AI conf</th>
+                          <th>AI reason</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {aiReview.results.map((r) => (
+                          <tr key={r.id} className={r.is_anomalous ? 'anomaly' : ''}>
+                            <td className="mono">{r.event?.timestamp ?? ''}</td>
+                            <td className="mono">{r.event?.client_ip ?? ''}</td>
+                            <td className="truncate" title={r.event?.url ?? ''}>
+                              {r.event?.url ?? ''}
+                            </td>
+                            <td className="mono">{r.is_anomalous ? 'yes' : 'no'}</td>
+                            <td className="mono">{typeof r.confidence === 'number' ? r.confidence.toFixed(2) : ''}</td>
+                            <td>{r.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </section>

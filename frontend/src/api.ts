@@ -109,6 +109,23 @@ export type UploadSummaryDto = {
   highlights: string[]
 }
 
+export type AiReviewResultDto = {
+  id: string
+  is_anomalous: boolean
+  confidence: number
+  reason: string
+  event: LogDto | null
+}
+
+export type AiReviewResponseDto = {
+  upload_id: string
+  model: string | null
+  analyzed_count: number
+  chunk_size: number
+  elapsed_ms: number | null
+  results: AiReviewResultDto[]
+}
+
 export async function register(username: string, password: string) {
   return apiRequest<{ data: { user: UserDto } }>('/api/auth/register', {
     method: 'POST',
@@ -156,6 +173,23 @@ export async function getUploadSummary(token: string, uploadId: string, bucketMi
   params.set('bucket_minutes', String(bucketMinutes))
   return apiRequest<{ data: { summary: UploadSummaryDto } }>(`/api/uploads/${uploadId}/summary?${params.toString()}`, {
     token,
+  })
+}
+
+export async function aiReviewUpload(
+  token: string,
+  opts: { uploadId: string; limit: number; chunkSize: number; onlyAnomalies: boolean },
+) {
+  return apiRequest<{ data: AiReviewResponseDto }>('/api/detector/ai/review', {
+    method: 'POST',
+    token,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      upload_id: opts.uploadId,
+      limit: opts.limit,
+      chunk_size: opts.chunkSize,
+      only_anomalies: opts.onlyAnomalies,
+    }),
   })
 }
 
