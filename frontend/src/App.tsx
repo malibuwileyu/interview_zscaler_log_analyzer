@@ -485,45 +485,88 @@ function App() {
               {!selectedUploadId ? (
                 <div className="muted">Select an upload to view its logs.</div>
               ) : (
-                <div className="tableWrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Time</th>
-                        <th>Client IP</th>
-                        <th>Action</th>
-                        <th>URL</th>
-                        <th>Bytes</th>
-                        <th>Risk</th>
-                        <th>Confidence</th>
-                        <th>Anomaly</th>
-                        <th>AI anomaly</th>
-                        <th>AI conf</th>
-                        <th>AI reason</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {logs.map((l) => (
-                        <tr key={l.id} className={l.ai_is_anomalous ? 'anomaly' : l.is_anomaly ? 'anomaly' : ''}>
-                          <td className="mono">{l.timestamp}</td>
-                          <td className="mono">{l.client_ip}</td>
-                          <td>{l.action}</td>
-                          <td className="truncate" title={l.url}>
-                            {l.url}
-                          </td>
-                          <td className="mono">{l.bytes_sent}</td>
-                          <td className="mono">{l.risk_score ?? ''}</td>
-                          <td className="mono">
-                            {typeof l.confidence_score === 'number' ? l.confidence_score.toFixed(2) : ''}
-                          </td>
-                          <td>{l.is_anomaly ? l.anomaly_note ?? 'flagged' : ''}</td>
-                          <td className="mono">{l.ai_is_anomalous == null ? '' : l.ai_is_anomalous ? 'yes' : 'no'}</td>
-                          <td className="mono">{typeof l.ai_confidence === 'number' ? l.ai_confidence.toFixed(2) : ''}</td>
-                          <td>{l.ai_reason ?? ''}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="splitGrid">
+                  <div>
+                    <div className="cardTitle">Heuristic review</div>
+                    <div className="muted">Deterministic rules + structured note + confidence.</div>
+                    <div className="tableWrap">
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Time</th>
+                            <th>Client IP</th>
+                            <th>Action</th>
+                            <th>URL</th>
+                            <th>Bytes</th>
+                            <th>Risk</th>
+                            <th>Conf</th>
+                            <th>Anomaly note</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {logs.map((l) => {
+                            const hasAi = l.ai_is_anomalous != null
+                            const disagrees = hasAi && Boolean(l.is_anomaly) !== Boolean(l.ai_is_anomalous)
+                            const cls = `${l.is_anomaly ? 'anomaly' : ''} ${disagrees ? 'disagree' : ''}`.trim()
+                            return (
+                              <tr key={l.id} className={cls}>
+                                <td className="mono">{l.timestamp}</td>
+                                <td className="mono">{l.client_ip}</td>
+                                <td>{l.action}</td>
+                                <td className="truncate" title={l.url}>
+                                  {l.url}
+                                </td>
+                                <td className="mono">{l.bytes_sent}</td>
+                                <td className="mono">{l.risk_score ?? ''}</td>
+                                <td className="mono">{typeof l.confidence_score === 'number' ? l.confidence_score.toFixed(2) : ''}</td>
+                                <td>{l.is_anomaly ? l.anomaly_note ?? 'flagged' : ''}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="cardTitle">AI review</div>
+                    <div className="muted">
+                      One-time, persisted per upload. Rows outlined red indicate AI vs heuristic disagreement.
+                    </div>
+                    <div className="tableWrap">
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Time</th>
+                            <th>Client IP</th>
+                            <th>URL</th>
+                            <th>AI</th>
+                            <th>Conf</th>
+                            <th>Reason</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {logs.map((l) => {
+                            const hasAi = l.ai_is_anomalous != null
+                            const disagrees = hasAi && Boolean(l.is_anomaly) !== Boolean(l.ai_is_anomalous)
+                            const cls = `${l.ai_is_anomalous ? 'anomaly' : ''} ${disagrees ? 'disagree' : ''}`.trim()
+                            return (
+                              <tr key={l.id} className={cls}>
+                                <td className="mono">{l.timestamp}</td>
+                                <td className="mono">{l.client_ip}</td>
+                                <td className="truncate" title={l.url}>
+                                  {l.url}
+                                </td>
+                                <td className="mono">{l.ai_is_anomalous == null ? '' : l.ai_is_anomalous ? 'yes' : 'no'}</td>
+                                <td className="mono">{typeof l.ai_confidence === 'number' ? l.ai_confidence.toFixed(2) : ''}</td>
+                                <td>{l.ai_reason ?? ''}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               )}
             </section>
