@@ -1,6 +1,17 @@
 import './App.css'
 import { useEffect, useMemo, useState } from 'react'
-import { createUpload, listLogs, listUploads, login, register, type LogDto, type UploadDto, type UserDto } from './api'
+import {
+  createUpload,
+  getUploadSummary,
+  listLogs,
+  listUploads,
+  login,
+  register,
+  type LogDto,
+  type UploadDto,
+  type UploadSummaryDto,
+  type UserDto,
+} from './api'
 import { clearToken, loadToken, saveToken } from './storage'
 
 function App() {
@@ -17,6 +28,9 @@ function App() {
   const [logs, setLogs] = useState<LogDto[]>([])
   const [onlyAnomalies, setOnlyAnomalies] = useState(true)
   const [limit, setLimit] = useState(200)
+
+  const [bucketMinutes, setBucketMinutes] = useState(5)
+  const [summary, setSummary] = useState<UploadSummaryDto | null>(null)
 
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +54,12 @@ function App() {
     setLogs(res.data.logs)
   }
 
+  async function refreshSummary(uploadId: string) {
+    if (!token) return
+    const res = await getUploadSummary(token, uploadId, bucketMinutes)
+    setSummary(res.data.summary)
+  }
+
   useEffect(() => {
     if (!token) return
     refreshUploads().catch((e) => setError(String(e?.message ?? e)))
@@ -51,6 +71,12 @@ function App() {
     refreshLogs(selectedUploadId).catch((e) => setError(String(e?.message ?? e)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, selectedUploadId, onlyAnomalies, limit])
+
+  useEffect(() => {
+    if (!token || !selectedUploadId) return
+    refreshSummary(selectedUploadId).catch((e) => setError(String(e?.message ?? e)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, selectedUploadId, bucketMinutes])
 
   return (
     <>
@@ -73,6 +99,7 @@ function App() {
                     setUploads([])
                     setSelectedUploadId(null)
                     setLogs([])
+                    setSummary(null)
                   }}
                 >
                   Logout
@@ -173,6 +200,7 @@ function App() {
                       await refreshUploads()
                       setSelectedUploadId(res.data.upload.id)
                       await refreshLogs(res.data.upload.id)
+                      await refreshSummary(res.data.upload.id)
                     } catch (err: unknown) {
                       setError(String((err as Error)?.message ?? err))
                     }
@@ -202,10 +230,12 @@ function App() {
                       className={`listItem ${u.id === selectedUploadId ? 'active' : ''}`}
                       onClick={async () => {
                         setSelectedUploadId(u.id)
+                        setSummary(null)
                         setError(null)
                         setStatus(null)
                         try {
                           await refreshLogs(u.id)
+                          await refreshSummary(u.id)
                         } catch (err: unknown) {
                           setError(String((err as Error)?.message ?? err))
                         }
@@ -220,6 +250,157 @@ function App() {
                   ))
                 )}
               </div>
+            </section>
+
+            <section className="card span2">
+              <div className="cardTitle">Summary {selectedUpload ? `for ${selectedUpload.filename}` : ''}</div>
+              <div className="row">
+                <label className="row">
+                  <span className="muted">Bucket</span>
+                  <input
+                    className="small"
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={bucketMinutes}
+                    onChange={(e) => setBucketMinutes(Number(e.target.value))}
+                  />
+                  <span className="muted">min</span>
+                </label>
+                <button
+                  className="secondary"
+                  disabled={!selectedUploadId}
+                  onClick={async () => {
+                    if (!selectedUploadId) return
+                    setError(null)
+                    setStatus(null)
+                    try {
+                      await refreshSummary(selectedUploadId)
+                    } catch (err: unknown) {
+                      setError(String((err as Error)?.message ?? err))
+                    }
+                  }}
+                >
+                  Refresh summary
+                </button>
+              </div>
+
+              {!selectedUploadId ? (
+                <div className="muted">Select an upload to view its summary.</div>
+              ) : !summary ? (
+                <div className="muted">Loading summary…</div>
+              ) : (
+                <div className="summaryGrid">
+                  <div className="summaryBlock">
+                    <div className="cardTitle">Highlights</div>
+                    {summary.highlights.length === 0 ? (
+                      <div className="muted">No highlights for this upload.</div>
+                    ) : (
+                      <ul className="summaryList">
+                        {summary.highlights.map((h, idx) => (
+                          <li key={idx}>{h}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="summaryBlock">
+                    <div className="cardTitle">Top talkers</div>
+                    {summary.topTalkers.length === 0 ? (
+                      <div className="muted">No data.</div>
+                    ) : (
+                      <div className="tableWrap">
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>Client IP</th>
+                              <th>Events</th>
+                              <th>Bytes out</th>
+                              <th>Anomalies</th>
+                              <th>Max risk</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {summary.topTalkers.map((t) => (
+                              <tr key={t.clientIp}>
+                                <td className="mono">{t.clientIp}</td>
+                                <td className="mono">{t.events}</td>
+                                <td className="mono">{t.bytesOut}</td>
+                                <td className="mono">{t.anomalies}</td>
+                                <td className="mono">{t.maxRisk}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="summaryBlock">
+                    <div className="cardTitle">Top domains</div>
+                    {summary.topDomains.length === 0 ? (
+                      <div className="muted">No data.</div>
+                    ) : (
+                      <div className="tableWrap">
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>Domain</th>
+                              <th>Events</th>
+                              <th>Bytes out</th>
+                              <th>Anomalies</th>
+                              <th>Max risk</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {summary.topDomains.map((d) => (
+                              <tr key={d.domain}>
+                                <td className="mono">{d.domain}</td>
+                                <td className="mono">{d.events}</td>
+                                <td className="mono">{d.bytesOut}</td>
+                                <td className="mono">{d.anomalies}</td>
+                                <td className="mono">{d.maxRisk}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="summaryBlock span2">
+                    <div className="cardTitle">Timeline</div>
+                    {summary.timeline.length === 0 ? (
+                      <div className="muted">No data.</div>
+                    ) : (
+                      <div className="tableWrap">
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>Bucket start</th>
+                              <th>Events</th>
+                              <th>Bytes out</th>
+                              <th>Anomalies</th>
+                              <th>Top domains</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {summary.timeline.map((b) => (
+                              <tr key={b.bucketStart}>
+                                <td className="mono">{b.bucketStart}</td>
+                                <td className="mono">{b.events}</td>
+                                <td className="mono">{b.bytesOut}</td>
+                                <td className="mono">{b.anomalies}</td>
+                                <td className="mono">{b.topDomains.join(', ')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
 
             <section className="card span2">

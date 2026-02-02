@@ -47,6 +47,10 @@ class Upload(db.Model):
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id', ondelete="CASCADE"), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(50), nullable=False, default='Processing')
+
+    raw_csv_text = db.Column(db.Text, nullable=True)
+
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False)
     
     user = db.relationship("User", back_populates="uploads")
     log_entries = db.relationship("LogEntry", back_populates="upload", cascade='all, delete-orphan')

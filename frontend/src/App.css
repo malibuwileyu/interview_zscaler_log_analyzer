@@ -38,6 +38,27 @@
   grid-column: span 2;
 }
 
+.summaryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.summaryBlock {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.summaryList {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
 .card {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -219,6 +240,9 @@ button.secondary {
   }
   .span2 {
     grid-column: span 1;
+  }
+  .summaryGrid {
+    grid-template-columns: 1fr;
   }
   .truncate {
     max-width: 260px;

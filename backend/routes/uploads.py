@@ -72,3 +72,24 @@ def list_logs(upload_id):
 
     logs = UploadRepository.get_logs_by_upload_id(upload_id, only_anomalies=only_anomalies, limit=limit)
     return jsonify({'data': {'logs': [_log_to_dict(log) for log in logs]}}), 200
+
+@upload_bp.get("/<upload_id>/summary")
+@jwt_required()
+def get_upload_summary(upload_id):
+    user_id = get_jwt_identity()
+    upload = UploadRepository.get_upload_by_id(upload_id)
+    if not upload:
+        return jsonify({'error': {'code': 'NOT_FOUND', 'message': 'Upload not found'}}), 404
+    if str(upload.user_id) != str(user_id):
+        return jsonify({'error': {'code': 'FORBIDDEN', 'message': 'You are not authorized to access this upload'}}), 403
+
+    try:
+        bucket_minutes = int(request.args.get("bucket_minutes", "5"))
+        if bucket_minutes <= 0:
+            raise ValueError("bucket_minutes must be a positive integer")
+        if bucket_minutes > 60:
+            raise ValueError("bucket_minutes must be less than or equal to 60")
+    except (ValueError, TypeError):
+        bucket_minutes = 5
+    summary = UploadService.get_upload_summary(upload_id, bucket_minutes=bucket_minutes)
+    return jsonify({'data': {'summary': summary}}), 200

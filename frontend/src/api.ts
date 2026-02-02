@@ -59,6 +59,39 @@ export type LogDto = {
   anomaly_note: string | null
 }
 
+export type SummaryTimelineBucketDto = {
+  bucketStart: string
+  events: number
+  bytesOut: number
+  anomalies: number
+  topDomains: string[]
+}
+
+export type SummaryTalkerDto = {
+  clientIp: string
+  events: number
+  bytesOut: number
+  anomalies: number
+  maxRisk: number
+}
+
+export type SummaryDomainDto = {
+  domain: string
+  events: number
+  bytesOut: number
+  anomalies: number
+  maxRisk: number
+}
+
+export type UploadSummaryDto = {
+  uploadId: string
+  bucketMinutes: number
+  timeline: SummaryTimelineBucketDto[]
+  topTalkers: SummaryTalkerDto[]
+  topDomains: SummaryDomainDto[]
+  highlights: string[]
+}
+
 export async function register(username: string, password: string) {
   return apiRequest<{ data: { user: UserDto } }>('/api/auth/register', {
     method: 'POST',
@@ -97,6 +130,14 @@ export async function listLogs(token: string, uploadId: string, onlyAnomalies: b
   params.set('only_anomalies', onlyAnomalies ? '1' : '0')
   params.set('limit', String(limit))
   return apiRequest<{ data: { logs: LogDto[] } }>(`/api/uploads/${uploadId}/logs?${params.toString()}`, {
+    token,
+  })
+}
+
+export async function getUploadSummary(token: string, uploadId: string, bucketMinutes: number) {
+  const params = new URLSearchParams()
+  params.set('bucket_minutes', String(bucketMinutes))
+  return apiRequest<{ data: { summary: UploadSummaryDto } }>(`/api/uploads/${uploadId}/summary?${params.toString()}`, {
     token,
   })
 }

@@ -25,6 +25,14 @@ class UploadRepository:
         '''High-performance bulk insertion of parsed log entries.'''
         db.session.bulk_insert_mappings(LogEntry, log_objects)
         db.session.commit()
+
+    @staticmethod
+    def set_raw_csv_text(upload_id: str, raw_csv_text: str) -> None:
+        '''Sets the raw CSV text for an upload.'''
+        upload = Upload.query.get(upload_id)
+        if upload:
+            upload.raw_csv_text = raw_csv_text
+            db.session.commit()
     
     '''--- Read Operations ---'''
     @staticmethod
@@ -47,6 +55,11 @@ class UploadRepository:
         '''Retrieves all uploads for a given user ID.'''
         return Upload.query.filter_by(user_id=user_id).all()
 
+    @staticmethod
+    def get_all_logs_by_upload_id(upload_id: str) -> list[LogEntry]:
+        '''Retrieves all log entries for a given upload ID.'''
+        return LogEntry.query.filter_by(upload_id=upload_id).all()
+    
     @staticmethod
     def get_all_log_entries() -> list[LogEntry]:
         '''Retrieves all log entries.'''
