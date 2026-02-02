@@ -85,16 +85,20 @@ class UploadService:
         # treat 5MB as threshold, 25MB+ as "max severe"
         if sent > 5_000_000:
             bytes_sev = min(1.0, (sent - 5_000_000) / 20_000_000)  
-            reasons.append(f"Large data outbound ({sent} bytes)")
+            sent_mb = sent / 1_000_000
+            reasons.append(f"Large data outbound ({sent_mb:.2f}MB > 5.00MB)")
         else:
             bytes_sev = 0.0
 
-        # keep the combined score in the range of 0-1
-        confidence = 0.55 * risk_sev + 0.45 * bytes_sev
+        confidence = 0.0
 
-        if reasons:
-            confidence = max(confidence, 0.25)
-        confidence = min(1.0, confidence)
+        if risk >= 4:
+            confidence += 0.15 + 0.55 * risk_sev     # risk=4 -> 0.15, risk=7 -> 0.70
+        if sent > 5_000_000:
+            confidence += 0.15 + 0.55 * bytes_sev    # 5MB+ε -> ~0.15, 25MB -> 0.70
+
+        if confidence > 1.0:
+            confidence = 1.0
 
         return len(reasons) > 0, ", ".join(reasons), confidence
 
