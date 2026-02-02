@@ -15,4 +15,3 @@ datetime,clientip,url,action,sentbytes,app_risk_score
 2026-02-01 14:00:13,10.0.2.23,https://risk.example.com/high5,Allowed,1200,4
 2026-02-01 14:00:14,10.0.2.24,https://files.example.com/upload,Allowed,5100001,2
 2026-02-01 14:00:15,10.0.2.25,https://example.com/logout,Allowed,650,1
-

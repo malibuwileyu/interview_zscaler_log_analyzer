@@ -96,29 +96,25 @@ def ai_review():
     if str(upload.user_id) != str(user_id):
         return jsonify({'error': {'code': 'FORBIDDEN', 'message': 'You are not authorized to access this upload'}}), 403
 
+    # This endpoint is now READ-ONLY: AI review is generated ONCE on initial upload and persisted.
+    # If you call it later, you only get existing results (no new model call).
     logs = UploadRepository.get_logs_by_upload_id(upload_id, only_anomalies=only_anomalies, limit=limit)
 
-    try:
-        ai = AiDetectorService.review_logs(logs, chunk_size=chunk_size)
-    except ValueError as e:
-        return jsonify({'error': {'code': 'CONFIG_ERROR', 'message': str(e)}}), 500
-    except Exception as e:
-        return jsonify({'error': {'code': 'AI_REVIEW_FAILED', 'message': str(e)}}), 502
+    # If AI review hasn't populated yet, return 202 so the UI can poll.
+    any_reviewed = any(getattr(l, "ai_reviewed_at", None) for l in logs)
+    upload_status = getattr(upload, "ai_review_status", None)
+    if upload_status in (None, "Pending") and not any_reviewed:
+        return jsonify({"data": {"upload_id": str(upload_id), "status": upload_status or "Pending", "results": []}}), 202
 
-    # Attach log context to decisions for easy rendering in the frontend
-    event_by_id = {str(l.id): _log_to_dict(l) for l in logs}
-    decisions = []
-    for d in ai.get("decisions", []):
-        log_id = str(d.get("id") or "")
-        if not log_id:
-            continue
-        decisions.append(
+    results = []
+    for l in logs:
+        results.append(
             {
-                "id": log_id,
-                "is_anomalous": bool(d.get("is_anomalous")),
-                "confidence": float(d.get("confidence") or 0.0),
-                "reason": str(d.get("reason") or ""),
-                "event": event_by_id.get(log_id),
+                "id": str(l.id),
+                "is_anomalous": bool(l.ai_is_anomalous) if l.ai_is_anomalous is not None else False,
+                "confidence": float(l.ai_confidence or 0.0),
+                "reason": str(l.ai_reason or ""),
+                "event": _log_to_dict(l),
             }
         )
 
@@ -126,11 +122,12 @@ def ai_review():
         {
             "data": {
                 "upload_id": str(upload_id),
-                "model": ai.get("model"),
-                "analyzed_count": len(logs),
-                "chunk_size": ai.get("chunk_size", chunk_size),
-                "elapsed_ms": ai.get("elapsed_ms"),
-                "results": decisions,
+                "model": getattr(upload, "ai_review_model", None),
+                "status": upload_status,
+                "analyzed_count": len(results),
+                "chunk_size": chunk_size,
+                "elapsed_ms": None,
+                "results": results,
             }
         }
     ), 200

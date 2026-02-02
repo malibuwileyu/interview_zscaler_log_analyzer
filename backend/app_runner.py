@@ -47,6 +47,19 @@ def _apply_startup_schema_patches() -> None:
     # log entry confidence score addition
     db.session.execute(text("ALTER TABLE log_entries ADD COLUMN IF NOT EXISTS confidence_score DOUBLE PRECISION;"))
     db.session.execute(text("UPDATE log_entries SET confidence_score = 0.0 WHERE confidence_score IS NULL;"))
+
+    # ai review addition
+    db.session.execute(text("ALTER TABLE uploads ADD COLUMN IF NOT EXISTS ai_review_status TEXT;"))
+    db.session.execute(text("ALTER TABLE uploads ADD COLUMN IF NOT EXISTS ai_review_model TEXT;"))
+    db.session.execute(text("ALTER TABLE uploads ADD COLUMN IF NOT EXISTS ai_reviewed_at TIMESTAMPTZ;"))
+    db.session.execute(text("ALTER TABLE uploads ADD COLUMN IF NOT EXISTS ai_review_error TEXT;"))
+
+    db.session.execute(text("ALTER TABLE log_entries ADD COLUMN IF NOT EXISTS ai_is_anomalous BOOLEAN;"))
+    db.session.execute(text("ALTER TABLE log_entries ADD COLUMN IF NOT EXISTS ai_confidence DOUBLE PRECISION;"))
+    db.session.execute(text("ALTER TABLE log_entries ADD COLUMN IF NOT EXISTS ai_reason TEXT;"))
+    db.session.execute(text("ALTER TABLE log_entries ADD COLUMN IF NOT EXISTS ai_model TEXT;"))
+    db.session.execute(text("ALTER TABLE log_entries ADD COLUMN IF NOT EXISTS ai_reviewed_at TIMESTAMPTZ;"))
+
     db.session.commit()
     pass
 

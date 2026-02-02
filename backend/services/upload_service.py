@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import csv
 import io
+import os
+import threading
+import uuid
 from werkzeug.datastructures import FileStorage
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from repositories.upload_repository import UploadRepository
+from services.ai_detector_service import AiDetectorService
 
 from models import Upload
 
@@ -45,6 +49,9 @@ class UploadService:
 
             UploadRepository.add_logs_bulk(parsed_logs)
             UploadRepository.update_upload_status(upload.id, 'Completed')
+
+            # Kick off AI review ONCE per upload (runs in background; results persisted).
+            UploadService._start_ai_review_for_upload(upload.id)
             return upload
         except Exception as e:
             UploadRepository.update_upload_status(upload.id, 'Failed')
@@ -265,3 +272,63 @@ class UploadService:
             "topDomains": top_domains_list,
             "highlights": highlights,
         }
+
+    @staticmethod
+    def _start_ai_review_for_upload(upload_id: str) -> None:
+        """
+        Runs AI review exactly once per upload.
+        - Marks upload ai_review_status=Pending immediately.
+        - Background thread computes and persists per-log ai_* fields.
+        """
+        # Only run once per upload. If status is already set, do nothing.
+        existing = UploadRepository.get_upload_by_id(upload_id)
+        if getattr(existing, "ai_review_status", None):
+            return
+
+        UploadRepository.set_upload_ai_status(upload_id, "Pending", model=None, error=None)
+
+        # Limit AI workload; tune with env vars.
+        try:
+            limit = int(os.getenv("AI_REVIEW_LIMIT", "50"))
+        except ValueError:
+            limit = 50
+        limit = max(1, min(limit, 200))
+
+        try:
+            chunk_size = int(os.getenv("AI_REVIEW_CHUNK_SIZE", "25"))
+        except ValueError:
+            chunk_size = 25
+        chunk_size = max(1, min(chunk_size, 50))
+
+        def _worker():
+            try:
+                logs = UploadRepository.get_logs_by_upload_id(upload_id, only_anomalies=False, limit=limit)
+                ai = AiDetectorService.review_logs(logs, chunk_size=chunk_size)
+
+                model = ai.get("model")
+                updates = []
+                for d in ai.get("decisions", []):
+                    try:
+                        log_id = uuid.UUID(str(d.get("id")))
+                    except Exception:
+                        continue
+                    updates.append(
+                        {
+                            "id": log_id,
+                            "ai_is_anomalous": bool(d.get("is_anomalous")),
+                            "ai_confidence": float(d.get("confidence") or 0.0),
+                            "ai_reason": str(d.get("reason") or ""),
+                            "ai_model": model,
+                            # set reviewed timestamp in DB
+                            "ai_reviewed_at": datetime.now(timezone.utc),
+                        }
+                    )
+
+                UploadRepository.set_ai_results_for_logs(updates)
+                UploadRepository.set_upload_ai_status(upload_id, "Completed", model=model, error=None)
+                UploadRepository.mark_upload_ai_reviewed_now(upload_id)
+            except Exception as e:
+                UploadRepository.set_upload_ai_status(upload_id, "Failed", model=None, error=str(e))
+
+        t = threading.Thread(target=_worker, daemon=True)
+        t.start()

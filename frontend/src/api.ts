@@ -61,7 +61,16 @@ export async function apiRequest<T>(
 }
 
 export type UserDto = { id: string; username: string }
-export type UploadDto = { id: string; user_id: string; filename: string; status: string }
+export type UploadDto = {
+  id: string
+  user_id: string
+  filename: string
+  status: string
+  ai_review_status: string | null
+  ai_review_model: string | null
+  ai_reviewed_at: string | null
+  ai_review_error: string | null
+}
 export type LogDto = {
   id: string
   upload_id: string
@@ -74,6 +83,11 @@ export type LogDto = {
   is_anomaly: boolean
   anomaly_note: string | null
   confidence_score: number | null
+  ai_is_anomalous: boolean | null
+  ai_confidence: number | null
+  ai_reason: string | null
+  ai_model: string | null
+  ai_reviewed_at: string | null
 }
 
 export type SummaryTimelineBucketDto = {
@@ -109,22 +123,6 @@ export type UploadSummaryDto = {
   highlights: string[]
 }
 
-export type AiReviewResultDto = {
-  id: string
-  is_anomalous: boolean
-  confidence: number
-  reason: string
-  event: LogDto | null
-}
-
-export type AiReviewResponseDto = {
-  upload_id: string
-  model: string | null
-  analyzed_count: number
-  chunk_size: number
-  elapsed_ms: number | null
-  results: AiReviewResultDto[]
-}
 
 export async function register(username: string, password: string) {
   return apiRequest<{ data: { user: UserDto } }>('/api/auth/register', {
@@ -173,23 +171,6 @@ export async function getUploadSummary(token: string, uploadId: string, bucketMi
   params.set('bucket_minutes', String(bucketMinutes))
   return apiRequest<{ data: { summary: UploadSummaryDto } }>(`/api/uploads/${uploadId}/summary?${params.toString()}`, {
     token,
-  })
-}
-
-export async function aiReviewUpload(
-  token: string,
-  opts: { uploadId: string; limit: number; chunkSize: number; onlyAnomalies: boolean },
-) {
-  return apiRequest<{ data: AiReviewResponseDto }>('/api/detector/ai/review', {
-    method: 'POST',
-    token,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      upload_id: opts.uploadId,
-      limit: opts.limit,
-      chunk_size: opts.chunkSize,
-      only_anomalies: opts.onlyAnomalies,
-    }),
   })
 }
 

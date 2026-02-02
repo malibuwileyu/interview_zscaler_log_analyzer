@@ -15,6 +15,10 @@ def _upload_to_dict(upload: Upload) -> dict:
         'user_id': str(upload.user_id),
         'filename': upload.filename,
         'status': upload.status,
+        'ai_review_status': getattr(upload, 'ai_review_status', None),
+        'ai_review_model': getattr(upload, 'ai_review_model', None),
+        'ai_reviewed_at': upload.ai_reviewed_at.isoformat() if getattr(upload, 'ai_reviewed_at', None) else None,
+        'ai_review_error': getattr(upload, 'ai_review_error', None),
     }
     
 def _log_to_dict(log: LogEntry) -> dict:
@@ -30,6 +34,11 @@ def _log_to_dict(log: LogEntry) -> dict:
         'is_anomaly': log.is_anomaly,
         'anomaly_note': log.anomaly_note,
         'confidence_score': log.confidence_score,
+        'ai_is_anomalous': log.ai_is_anomalous,
+        'ai_confidence': log.ai_confidence,
+        'ai_reason': log.ai_reason,
+        'ai_model': log.ai_model,
+        'ai_reviewed_at': log.ai_reviewed_at.isoformat() if log.ai_reviewed_at else None,
     }
 
 @upload_bp.post("/")

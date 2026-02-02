@@ -1,5 +1,6 @@
 from models import db, LogEntry, Upload
 from uuid import UUID
+from sqlalchemy import text
 
 class UploadRepository:
     '''--- Write Operations ---'''
@@ -19,6 +20,37 @@ class UploadRepository:
         if upload:
             upload.status = status
             db.session.commit()
+
+    @staticmethod
+    def set_upload_ai_status(upload_id: str, status: str, *, model: str | None = None, error: str | None = None) -> None:
+        upload = Upload.query.get(upload_id)
+        if not upload:
+            return
+        upload.ai_review_status = status
+        if model is not None:
+            upload.ai_review_model = model
+        if error is not None:
+            upload.ai_review_error = error
+        db.session.commit()
+
+    @staticmethod
+    def mark_upload_ai_reviewed_now(upload_id: str) -> None:
+        upload = Upload.query.get(upload_id)
+        if not upload:
+            return
+        db.session.execute(text("UPDATE uploads SET ai_reviewed_at = NOW() WHERE id = :id"), {"id": upload_id})
+        db.session.commit()
+
+    @staticmethod
+    def set_ai_results_for_logs(rows: list[dict]) -> None:
+        """
+        rows: list of mappings with keys:
+          id (UUID), ai_is_anomalous (bool), ai_confidence (float), ai_reason (str), ai_model (str)
+        """
+        if not rows:
+            return
+        db.session.bulk_update_mappings(LogEntry, rows)
+        db.session.commit()
     
     @staticmethod
     def add_logs_bulk(log_objects: list[LogEntry]) -> None:
