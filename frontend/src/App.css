@@ -45,13 +45,6 @@
   margin-top: 12px;
 }
 
-.splitGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-top: 12px;
-}
-
 .table tr.disagree {
   outline: 2px solid rgba(239, 68, 68, 0.40);
   outline-offset: -2px;
@@ -254,9 +247,6 @@ button.secondary {
     grid-column: span 1;
   }
   .summaryGrid {
-    grid-template-columns: 1fr;
-  }
-  .splitGrid {
     grid-template-columns: 1fr;
   }
   .truncate {
