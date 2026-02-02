@@ -8,6 +8,7 @@ import uuid
 from werkzeug.datastructures import FileStorage
 from datetime import datetime, timezone
 from urllib.parse import urlparse
+from flask import current_app
 
 from repositories.upload_repository import UploadRepository
 from services.ai_detector_service import AiDetectorService
@@ -300,35 +301,40 @@ class UploadService:
             chunk_size = 25
         chunk_size = max(1, min(chunk_size, 50))
 
+        # Capture the Flask app instance so the background thread can push an app context.
+        app = current_app._get_current_object()
+
         def _worker():
-            try:
-                logs = UploadRepository.get_logs_by_upload_id(upload_id, only_anomalies=False, limit=limit)
-                ai = AiDetectorService.review_logs(logs, chunk_size=chunk_size)
+            # Flask-SQLAlchemy sessions are scoped to the Flask application context.
+            with app.app_context():
+                try:
+                    logs = UploadRepository.get_logs_by_upload_id(upload_id, only_anomalies=False, limit=limit)
+                    ai = AiDetectorService.review_logs(logs, chunk_size=chunk_size)
 
-                model = ai.get("model")
-                updates = []
-                for d in ai.get("decisions", []):
-                    try:
-                        log_id = uuid.UUID(str(d.get("id")))
-                    except Exception:
-                        continue
-                    updates.append(
-                        {
-                            "id": log_id,
-                            "ai_is_anomalous": bool(d.get("is_anomalous")),
-                            "ai_confidence": float(d.get("confidence") or 0.0),
-                            "ai_reason": str(d.get("reason") or ""),
-                            "ai_model": model,
-                            # set reviewed timestamp in DB
-                            "ai_reviewed_at": datetime.now(timezone.utc),
-                        }
-                    )
+                    model = ai.get("model")
+                    updates = []
+                    for d in ai.get("decisions", []):
+                        try:
+                            log_id = uuid.UUID(str(d.get("id")))
+                        except Exception:
+                            continue
+                        updates.append(
+                            {
+                                "id": log_id,
+                                "ai_is_anomalous": bool(d.get("is_anomalous")),
+                                "ai_confidence": float(d.get("confidence") or 0.0),
+                                "ai_reason": str(d.get("reason") or ""),
+                                "ai_model": model,
+                                "ai_reviewed_at": datetime.now(timezone.utc),
+                            }
+                        )
 
-                UploadRepository.set_ai_results_for_logs(updates)
-                UploadRepository.set_upload_ai_status(upload_id, "Completed", model=model, error=None)
-                UploadRepository.mark_upload_ai_reviewed_now(upload_id)
-            except Exception as e:
-                UploadRepository.set_upload_ai_status(upload_id, "Failed", model=None, error=str(e))
+                    UploadRepository.set_ai_results_for_logs(updates)
+                    UploadRepository.set_upload_ai_status(upload_id, "Completed", model=model, error=None)
+                    UploadRepository.mark_upload_ai_reviewed_now(upload_id)
+                except Exception as e:
+                    # If AI review fails for any reason, persist the error so UI can show it.
+                    UploadRepository.set_upload_ai_status(upload_id, "Failed", model=None, error=str(e))
 
         t = threading.Thread(target=_worker, daemon=True)
         t.start()
