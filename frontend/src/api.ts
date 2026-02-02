@@ -73,6 +73,7 @@ export type LogDto = {
   risk_score: number | null
   is_anomaly: boolean
   anomaly_note: string | null
+  confidence_score: number | null
 }
 
 export type SummaryTimelineBucketDto = {

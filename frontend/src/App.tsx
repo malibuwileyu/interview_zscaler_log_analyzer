@@ -477,6 +477,7 @@ function App() {
                         <th>URL</th>
                         <th>Bytes</th>
                         <th>Risk</th>
+                        <th>Confidence</th>
                         <th>Anomaly</th>
                       </tr>
                     </thead>
@@ -491,6 +492,9 @@ function App() {
                           </td>
                           <td className="mono">{l.bytes_sent}</td>
                           <td className="mono">{l.risk_score ?? ''}</td>
+                          <td className="mono">
+                            {typeof l.confidence_score === 'number' ? l.confidence_score.toFixed(2) : ''}
+                          </td>
                           <td>{l.is_anomaly ? l.anomaly_note ?? 'flagged' : ''}</td>
                         </tr>
                       ))}

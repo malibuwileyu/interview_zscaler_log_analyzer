@@ -11,20 +11,44 @@ from routes.auth import auth_bp
 from routes.uploads import upload_bp
 from routes.detector import detector_bp
 
+def _maybe_clear_data_for_reupload() -> None:
+    """
+    Destructive, opt-in data reset.
+
+    Use case: you changed parsing/anomaly logic (e.g., added confidence scores) and
+    want to wipe old uploads/logs to re-upload clean fixtures.
+
+    Enable by setting env var DB_CLEAR=1 for ONE deploy, then set it back to 0.
+    """
+    if os.getenv("DB_CLEAR", "0") not in ("1", "true", "True", "yes", "YES"):
+        return
+
+    # Keep users; wipe uploads + log entries.
+    db.session.execute(text("TRUNCATE TABLE log_entries, uploads CASCADE;"))
+    db.session.commit()
+    print("DB_CLEAR enabled: truncated log_entries and uploads", flush=True)
+
 def _apply_startup_schema_patches() -> None:
     """
     Minimal, additive schema patches for "get it done today" deployments.
     `db.create_all()` does NOT add new columns to existing tables, so when we
     add fields to models we need a small ALTER TABLE step for existing DBs.
     """
+    # summary additions
     # Upload.raw_csv_text / Upload.created_at
-    db.session.execute(text("ALTER TABLE uploads ADD COLUMN IF NOT EXISTS raw_csv_text TEXT;"))
-    db.session.execute(text("ALTER TABLE uploads ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;"))
+    #db.session.execute(text("ALTER TABLE uploads ADD COLUMN IF NOT EXISTS raw_csv_text TEXT;"))
+    #db.session.execute(text("ALTER TABLE uploads ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;"))
     # Backfill + defaults (safe if table is small; acceptable for take-home)
-    db.session.execute(text("UPDATE uploads SET created_at = NOW() WHERE created_at IS NULL;"))
-    db.session.execute(text("ALTER TABLE uploads ALTER COLUMN created_at SET DEFAULT NOW();"))
-    db.session.execute(text("ALTER TABLE uploads ALTER COLUMN created_at SET NOT NULL;"))
+    #db.session.execute(text("UPDATE uploads SET created_at = NOW() WHERE created_at IS NULL;"))
+    #db.session.execute(text("ALTER TABLE uploads ALTER COLUMN created_at SET DEFAULT NOW();"))
+    #db.session.execute(text("ALTER TABLE uploads ALTER COLUMN created_at SET NOT NULL;"))
+    #db.session.commit()
+
+    # log entry confidence score addition
+    db.session.execute(text("ALTER TABLE log_entries ADD COLUMN IF NOT EXISTS confidence_score DOUBLE PRECISION;"))
+    db.session.execute(text("UPDATE log_entries SET confidence_score = 0.0 WHERE confidence_score IS NULL;"))
     db.session.commit()
+    pass
 
 def create_app() -> Flask:
     load_dotenv()
@@ -45,6 +69,7 @@ def create_app() -> Flask:
 
     try:
         with app.app_context():
+            _maybe_clear_data_for_reupload()
             db.create_all()
             _apply_startup_schema_patches()
             db.session.execute(text("SELECT 1"))

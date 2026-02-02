@@ -29,6 +29,7 @@ def _log_to_dict(log: LogEntry) -> dict:
         'risk_score': log.risk_score,
         'is_anomaly': log.is_anomaly,
         'anomaly_note': log.anomaly_note,
+        'confidence_score': log.confidence_score,
     }
 
 @upload_bp.post("/")

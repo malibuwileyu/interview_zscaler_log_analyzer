@@ -67,5 +67,6 @@ class LogEntry(db.Model):
     risk_score = db.Column(db.Integer, nullable=True)
     is_anomaly = db.Column(db.Boolean, nullable=False, default=False)
     anomaly_note = db.Column(db.String(512), nullable=True)
+    confidence_score = db.Column(db.Float, nullable=True)
 
     upload = db.relationship("Upload", back_populates="log_entries")

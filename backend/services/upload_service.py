@@ -28,7 +28,7 @@ class UploadService:
 
             parsed_logs = []
             for row in reader:
-                is_anomaly, reason = UploadService.parse_log_row(row)
+                is_anomaly, reason, confidence_score = UploadService.parse_log_row(row)
 
                 parsed_logs.append({
                     'upload_id': upload.id,
@@ -39,7 +39,8 @@ class UploadService:
                     'bytes_sent': int(row.get('sentbytes', 0)),
                     'risk_score': int(row.get('app_risk_score', 0)),
                     'is_anomaly': is_anomaly,
-                    'anomaly_note': reason
+                    'anomaly_note': reason,
+                    'confidence_score': confidence_score,
                 })
 
             UploadRepository.add_logs_bulk(parsed_logs)
@@ -68,15 +69,34 @@ class UploadService:
             
     '''--- Read Operations ---'''
     @staticmethod
-    def parse_log_row(row: dict) -> tuple[bool, str]:
-        '''Parses a single log row and determines if it is an anomaly.'''
-        reasons = []
-        if int(row.get('app_risk_score', 0)) >= 4:
-            reasons.append("High risk app")
-        if int(row.get('sentbytes', 0)) > 5000000:
-            reasons.append("Large data outbound")
+    def parse_log_row(row: dict) -> tuple[bool, str, float]:
+        reasons: list[str] = []
 
-        return len(reasons) > 0, ", ".join(reasons)
+        risk = int(row.get('app_risk_score', 0) or 0)
+        sent = int(row.get('sentbytes', 0) or 0)
+
+        # scale risk starting from 4 and upt to 7
+        if risk >= 4:
+            risk_sev = min(1.0, (risk - 4) / 3) 
+            reasons.append(f"High risk app (risk={risk})")
+        else:
+            risk_sev = 0.0
+
+        # treat 5MB as threshold, 25MB+ as "max severe"
+        if sent > 5_000_000:
+            bytes_sev = min(1.0, (sent - 5_000_000) / 20_000_000)  
+            reasons.append(f"Large data outbound ({sent} bytes)")
+        else:
+            bytes_sev = 0.0
+
+        # keep the combined score in the range of 0-1
+        confidence = 0.55 * risk_sev + 0.45 * bytes_sev
+
+        if reasons:
+            confidence = max(confidence, 0.25)
+        confidence = min(1.0, confidence)
+
+        return len(reasons) > 0, ", ".join(reasons), confidence
 
     @staticmethod
     def get_upload_summary(upload_id: str, bucket_minutes: int = 5) -> dict:
