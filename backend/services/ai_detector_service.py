@@ -19,13 +19,6 @@ class AiDecision:
 
 
 class AiDetectorService:
-    """
-    Minimal OpenAI-backed anomaly review.
-
-    - No new frameworks: uses stdlib urllib.
-    - Operates on small batches ("chunks") so the model stays focused.
-    - Returns strict per-log decisions: yes/no + short reason + confidence 0..1
-    """
 
     @staticmethod
     def review_logs(
