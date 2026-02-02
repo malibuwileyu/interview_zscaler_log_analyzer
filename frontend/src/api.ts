@@ -2,6 +2,18 @@ export type ApiError = {
   error?: { code?: string; message?: string; [k: string]: unknown }
 }
 
+export class HttpError extends Error {
+  status: number
+  payload: unknown
+
+  constructor(message: string, status: number, payload: unknown) {
+    super(message)
+    this.name = 'HttpError'
+    this.status = status
+    this.payload = payload
+  }
+}
+
 async function readJsonSafely(res: Response) {
   const text = await res.text()
   if (!text) return null
@@ -34,11 +46,15 @@ export async function apiRequest<T>(
 
   const payload = await readJsonSafely(res)
   if (!res.ok) {
-    const msg =
-      typeof payload === 'object' && payload && 'error' in payload
-        ? (payload as ApiError).error?.message ?? res.statusText
-        : res.statusText
-    throw new Error(msg)
+    const msg = (() => {
+      if (typeof payload === 'object' && payload) {
+        if ('error' in payload) return (payload as ApiError).error?.message ?? res.statusText
+        // flask-jwt-extended commonly returns: { "msg": "Missing Authorization Header" }
+        if ('msg' in payload && typeof (payload as any).msg === 'string') return (payload as any).msg
+      }
+      return res.statusText
+    })()
+    throw new HttpError(msg, res.status, payload)
   }
 
   return payload as T

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   createUpload,
   getUploadSummary,
+  HttpError,
   listLogs,
   listUploads,
   login,
@@ -37,6 +38,18 @@ function App() {
 
   const isAuthed = Boolean(token)
 
+  function forceLogout(message: string) {
+    clearToken()
+    setToken(null)
+    setUser(null)
+    setUploads([])
+    setSelectedUploadId(null)
+    setLogs([])
+    setSummary(null)
+    setStatus(null)
+    setError(message)
+  }
+
   const selectedUpload = useMemo(
     () => uploads.find((u) => u.id === selectedUploadId) ?? null,
     [uploads, selectedUploadId],
@@ -62,19 +75,28 @@ function App() {
 
   useEffect(() => {
     if (!token) return
-    refreshUploads().catch((e) => setError(String(e?.message ?? e)))
+    refreshUploads().catch((e) => {
+      if (e instanceof HttpError && e.status === 401) return forceLogout('Session expired. Please log in again.')
+      setError(String((e as Error)?.message ?? e))
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   useEffect(() => {
     if (!token || !selectedUploadId) return
-    refreshLogs(selectedUploadId).catch((e) => setError(String(e?.message ?? e)))
+    refreshLogs(selectedUploadId).catch((e) => {
+      if (e instanceof HttpError && e.status === 401) return forceLogout('Session expired. Please log in again.')
+      setError(String((e as Error)?.message ?? e))
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, selectedUploadId, onlyAnomalies, limit])
 
   useEffect(() => {
     if (!token || !selectedUploadId) return
-    refreshSummary(selectedUploadId).catch((e) => setError(String(e?.message ?? e)))
+    refreshSummary(selectedUploadId).catch((e) => {
+      if (e instanceof HttpError && e.status === 401) return forceLogout('Session expired. Please log in again.')
+      setError(String((e as Error)?.message ?? e))
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, selectedUploadId, bucketMinutes])
 
@@ -93,13 +115,7 @@ function App() {
                 <button
                   className="secondary"
                   onClick={() => {
-                    clearToken()
-                    setToken(null)
-                    setUser(null)
-                    setUploads([])
-                    setSelectedUploadId(null)
-                    setLogs([])
-                    setSummary(null)
+                    forceLogout('Logged out.')
                   }}
                 >
                   Logout
@@ -152,6 +168,7 @@ function App() {
                   setUser(res.data.user)
                   setStatus(`Logged in as ${res.data.user.username}`)
                 } catch (err: unknown) {
+                  if (err instanceof HttpError && err.status === 401) return setError(err.message)
                   setError(String((err as Error)?.message ?? err))
                 }
               }}
@@ -202,6 +219,7 @@ function App() {
                       await refreshLogs(res.data.upload.id)
                       await refreshSummary(res.data.upload.id)
                     } catch (err: unknown) {
+                      if (err instanceof HttpError && err.status === 401) return forceLogout('Session expired. Please log in again.')
                       setError(String((err as Error)?.message ?? err))
                     }
                   }}
@@ -237,6 +255,7 @@ function App() {
                           await refreshLogs(u.id)
                           await refreshSummary(u.id)
                         } catch (err: unknown) {
+                          if (err instanceof HttpError && err.status === 401) return forceLogout('Session expired. Please log in again.')
                           setError(String((err as Error)?.message ?? err))
                         }
                       }}
@@ -277,6 +296,7 @@ function App() {
                     try {
                       await refreshSummary(selectedUploadId)
                     } catch (err: unknown) {
+                      if (err instanceof HttpError && err.status === 401) return forceLogout('Session expired. Please log in again.')
                       setError(String((err as Error)?.message ?? err))
                     }
                   }}
@@ -435,6 +455,7 @@ function App() {
                     try {
                       await refreshLogs(selectedUploadId)
                     } catch (err: unknown) {
+                      if (err instanceof HttpError && err.status === 401) return forceLogout('Session expired. Please log in again.')
                       setError(String((err as Error)?.message ?? err))
                     }
                   }}

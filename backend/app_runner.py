@@ -10,6 +10,22 @@ from models import db
 from routes.auth import auth_bp
 from routes.uploads import upload_bp
 from routes.detector import detector_bp
+
+def _apply_startup_schema_patches() -> None:
+    """
+    Minimal, additive schema patches for "get it done today" deployments.
+    `db.create_all()` does NOT add new columns to existing tables, so when we
+    add fields to models we need a small ALTER TABLE step for existing DBs.
+    """
+    # Upload.raw_csv_text / Upload.created_at
+    db.session.execute(text("ALTER TABLE uploads ADD COLUMN IF NOT EXISTS raw_csv_text TEXT;"))
+    db.session.execute(text("ALTER TABLE uploads ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;"))
+    # Backfill + defaults (safe if table is small; acceptable for take-home)
+    db.session.execute(text("UPDATE uploads SET created_at = NOW() WHERE created_at IS NULL;"))
+    db.session.execute(text("ALTER TABLE uploads ALTER COLUMN created_at SET DEFAULT NOW();"))
+    db.session.execute(text("ALTER TABLE uploads ALTER COLUMN created_at SET NOT NULL;"))
+    db.session.commit()
+
 def create_app() -> Flask:
     load_dotenv()
     app = Flask(__name__)
@@ -30,10 +46,11 @@ def create_app() -> Flask:
     try:
         with app.app_context():
             db.create_all()
+            _apply_startup_schema_patches()
             db.session.execute(text("SELECT 1"))
     except Exception as e:
         print(f"DB init failed: {e}", flush=True)
-        raise e
+        raise
     Migrate(app, db)
     JWTManager(app)
     CORS(

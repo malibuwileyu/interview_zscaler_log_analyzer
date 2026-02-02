@@ -36,6 +36,11 @@ app.use(
     xfwd: true,
     pathFilter: '/api',
     logLevel: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+    onProxyReq: (proxyReq, req) => {
+      // Be explicit: forward auth header (some proxy/env combinations can drop it).
+      const auth = req.headers['authorization']
+      if (auth) proxyReq.setHeader('authorization', auth)
+    },
   }),
 )
 
